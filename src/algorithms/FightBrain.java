@@ -57,6 +57,8 @@ public class FightBrain extends Brain {
 	}
 
 	public void step() {
+		if(whoAmI %3 != 2)
+			return;
 		ArrayList<IRadarResult> radarResults;
 		if (getHealth() <= 0)
 			return;
@@ -98,7 +100,6 @@ public class FightBrain extends Brain {
 			dodgeTask = false;
 			dodgeLeftTask = false;
 			dodgeRightTask = false;
-			myMove();
 			return;
 		}
 		/***
@@ -120,11 +121,13 @@ public class FightBrain extends Brain {
 		 ***/
 		if ((detectFront().getObjectType() == IFrontSensorResult.Types.WALL ||  detectFront().getObjectType() == IFrontSensorResult.Types.Wreck)) {
 			for (IRadarResult r : detectRadar()) {
-				if(r.getObjectType() == IRadarResult.Types.Wreck){
+				if(r.getObjectType() == IRadarResult.Types.Wreck && r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 80){
 					dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
+					System.out.println("Detection dun wreck");
 					return;
 				}
 			}
+			System.out.println("Detection dun mur");
 			dodgeObstacle();
 			return;
 		}
@@ -149,18 +152,31 @@ public class FightBrain extends Brain {
 				/** Ne pas tirer sur friends **/
 				if (r.getObjectType() == IRadarResult.Types.TeamMainBot
 						|| r.getObjectType() == IRadarResult.Types.TeamSecondaryBot) {
+					System.out.println("Je detecte un friend "+r.getObjectDistance()+" et "+(r.getObjectRadius() + Parameters.teamAMainBotRadius + 100));
 					if (isInFrontOfMe(r.getObjectDirection()) && enemyFighters + enemyPatrols == 0) {
 						doNotShoot = true;
-						if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50) {
-							dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
-							return;
-						}
-					}
 
+					}
+					
+					if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 100 &&  (enemyFighters+enemyPatrols) == 0) {
+						dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
+						System.out.println("Quelque chose est proche");
+						return;
+					}
+				}
+				
+				if(r.getObjectType() == IRadarResult.Types.Wreck ){
+					System.out.println("Je detecte un wreck");
+					if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 100 &&  (enemyFighters+enemyPatrols) == 0) {
+						dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
+						System.out.println("Quelque chose est proche");
+						return;
+					}
 				}
 				/** Reculer si trop proche **/
 				if(r.getObjectType() == IRadarResult.Types.TeamMainBot || r.getObjectType() == IRadarResult.Types.TeamSecondaryBot || r.getObjectType() == IRadarResult.Types.Wreck){
-					if(r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 20 && !dodgeTask){
+					if(r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 20 && !dodgeTask && (enemyFighters+enemyPatrols) == 0){
+						System.out.println("Quelque chose est trop proche");
 						moveBackTast(r.getObjectDirection());
 						return;
 					}
@@ -175,6 +191,10 @@ public class FightBrain extends Brain {
 			}
 		}
 		
+		moveRandom();
+	}
+	
+	private void moveRandom(){
 		/*** DEFAULT COMPORTEMENT ***/
 		double randDouble = Math.random();
 		if(randDouble <= 0.60){
@@ -190,8 +210,6 @@ public class FightBrain extends Brain {
 			return;
 		}
 	}
-	
-	
 	private void dodgeObstacle(){
 		dodgeTask = true;
 		if(Math.random() > 0.5){
@@ -205,11 +223,20 @@ public class FightBrain extends Brain {
 		dodgeTask = true;
 		if(isADroite(pos) && isDevant(pos)){
 			dodgeLeftTask = true;
+			System.out.println("Quelque chose devant et a droite");
 		}else{
-			if(isDevant(pos)){
+			if(isAGauche(pos) && isDevant(pos)){
 			dodgeRightTask = true;
-			}else
-				return;
+			System.out.println("Quelque chose devant et a gauche");
+			}else{
+				if(isDevant(pos)){
+					moveBackTask = true;
+					System.out.println("Quelque chose devant");
+				}else{
+					moveFrontTask = true;
+					System.out.println("Quelque chose derriere");
+				}
+			}
 		}
 		nbTurns = rand.nextInt(40);
 	}
@@ -256,16 +283,25 @@ public class FightBrain extends Brain {
 	}
 	private boolean isInFrontOfMe(Double enemy) {
 		double heading = getHeading();
-		double left = 0.15 * Math.PI;
-		double right = -0.15 * Math.PI;
+		double left = 0.2 * Math.PI;
+		double right = -0.2 * Math.PI;
 		boolean res = enemy <= (heading + left) % (2*Math.PI) && enemy >= (heading + right) % (2*Math.PI);
 		return res;
 	}
 	private boolean isDevant(double pos){
+		System.out.println("Calcul is devant");
 		double heading = getHeading();
+		if(pos < 0)
+			pos = (pos + 2 * Math.PI) % (2 * Math.PI);
 		double left = 0.5 * Math.PI;
-		System.out.println("POs = "+pos+" HEADING "+heading+" Left "+((heading + left) % (2*Math.PI))+" right "+((heading - left) % (2*Math.PI))+" res "+(pos <= (heading + left) % (2*Math.PI) && pos >= (heading - left) % (2*Math.PI)));
-		return pos <= (heading + left) % (2*Math.PI) && pos >= (heading - left) % (2*Math.PI);
+		double leftBorn = (heading + left) % (2*Math.PI);
+		double rightBorn = (heading - left) % (2*Math.PI);
+		if(leftBorn < 0)
+			leftBorn = (leftBorn + 2 * Math.PI) % (2 * Math.PI);
+		if(rightBorn < 0)
+			rightBorn = (rightBorn + 2 * Math.PI) % (2 * Math.PI);
+		System.out.println("POs = "+pos+" HEADING "+heading+" Left "+leftBorn+" right "+rightBorn+" result "+(pos <= leftBorn  && pos >= rightBorn));
+		return pos <= leftBorn  && pos >= rightBorn;
 	}
 	
 	private boolean isDerriere(double pos){
@@ -273,10 +309,19 @@ public class FightBrain extends Brain {
 	}
 	
 	private boolean isAGauche(double pos){
+		System.out.println("Calcul is Agauche");
 		double heading = getHeading();
+		if(pos < 0)
+			pos = (pos + 2 * Math.PI) % (2 * Math.PI);
 		double left =Math.PI;
-		System.out.println("POs = "+pos+" HEADING "+heading+" Right "+(heading % (2 * Math.PI))+" Left "+((heading - left) % (2 * Math.PI))+" resultat = "+(pos <= heading % (2 * Math.PI) && pos >= (heading - left) % (2 * Math.PI)));
-		return pos <= heading % (2 * Math.PI) && pos >= (heading - left) % (2 * Math.PI);
+		double leftBorn = heading % (2 * Math.PI);
+		double rightBorn = (heading - left) % (2 * Math.PI);
+		if(leftBorn < 0)
+			leftBorn = (leftBorn + 2 * Math.PI) % (2 * Math.PI);
+		if(rightBorn < 0)
+			rightBorn = (rightBorn + 2 * Math.PI) % (2 * Math.PI);
+		System.out.println("POs = "+pos+" HEADING "+heading+" Left "+leftBorn+" right "+rightBorn+" res "+(pos <= leftBorn  && pos >= rightBorn));
+		return pos <= leftBorn  && pos >= rightBorn ;
 	}
 	
 	private boolean isADroite(double pos){
