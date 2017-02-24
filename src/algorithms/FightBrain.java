@@ -279,7 +279,7 @@ public class FightBrain extends Brain {
 		double heading = getHeading();
 		double left = 0.5 * Math.PI;
 		System.out.println("POs = "+pos+" HEADING "+heading+" Left "+((heading + left) % (2*Math.PI))+" right "+((heading - left) % (2*Math.PI))+" res "+(pos <= (heading + left) % (2*Math.PI) && pos >= (heading - left) % (2*Math.PI)));
-		return pos <= (heading + left) && pos >= (heading - left);
+		return pos <= (heading + left) % (2*Math.PI) && pos >= (heading - left) % (2*Math.PI);
 	}
 	
 	private boolean isDerriere(double pos){
@@ -290,7 +290,7 @@ public class FightBrain extends Brain {
 		double heading = getHeading();
 		double left =Math.PI;
 		System.out.println("POs = "+pos+" HEADING "+heading+" Right "+(heading)+" Left "+((heading - left))+" resultat = "+(pos <= heading && pos >= (heading - left)));
-		return pos <= heading && pos >= (heading - left);
+		return pos <= heading % (2*Math.PI) && pos >= (heading - left) % (2*Math.PI);
 	}
 	
 	private boolean isADroite(double pos){
