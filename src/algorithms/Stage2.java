@@ -8,6 +8,7 @@ package algorithms;
 
 import robotsimulator.Brain;
 import characteristics.Parameters;
+import characteristics.Parameters.Direction;
 import characteristics.IFrontSensorResult;
 import characteristics.IRadarResult;
 
@@ -49,62 +50,7 @@ public class Stage2 extends Brain {
     isMoving=false;
   }
   public void step() {
-    //ODOMETRY CODE
-    if (isMoving      &&  whoAmI == ROCKY             ){
-      isMoving=false;
-    }
-    //DEBUG MESSAGE
-    if (whoAmI == ROCKY) {
-    	if(isSameDirection(getHeading(),Parameters.NORTH)){
-    		distTop ++;
-    	}
-    	if(isSameDirection(getHeading(),Parameters.EAST))
-   	        distLateral++;
-    	sendLogMessage("J'ai ca "+String.format("%.2f",distLateral)+" et "+String.format("%.2f",distTop)+" Head "+String.format("%.2f",getHeading())+"\n N "+String.format("%.2f",Parameters.NORTH)+" L "+String.format("%.2f",Parameters.EAST ));
-    }
-    //AUTOMATON
-    
-    /*** Permet au robot de se positioner vers son NORD ***/
-    if (turnNorthTask && isHeading(Parameters.NORTH)) {
-      turnNorthTask=false;
-      myMove();
-      return;
-    }
-    /***  Tant que le robot n'est pas bien positionne on tourne a droite jusqu'a atteindre le NORD ***/
-    if (turnNorthTask && !isHeading(Parameters.NORTH)) {
-      stepTurn(Parameters.Direction.RIGHT);
-      //sendLogMessage("Initial TeamB position. Heading North!");
-      return;
-    }
-    
-    /*** Permet au robot de se positioner vers sa GAUCHE ***/
-    if (turnLeftTask && isHeading(endTaskDirection)) {
-      turnLeftTask=false;
-      myMove();
-      //sendLogMessage("Moving a head. Waza!");
-      return;
-    }
-    /***  Tant que le robot n'est pas bien positionne on tourne a gauche jusqu'a atteindre la valeur de LEFTTURNFULLANGLE  ***/
-    if (turnLeftTask && !isHeading(endTaskDirection)) {
-      stepTurn(Parameters.Direction.LEFT);
-      //sendLogMessage("Iceberg at 12 o'clock. Heading 9!");
-      return;
-    }
-    
-    /*** Si le robot n'est pas en mode tourner et qu'il detecte un wall alors tourne a gauche ***/
-    if (!turnNorthTask && !turnLeftTask && detectFront().getObjectType()==IFrontSensorResult.Types.WALL) {
-      turnLeftTask=true;
-      endTaskDirection=getHeading()+Parameters.LEFTTURNFULLANGLE;
-      stepTurn(Parameters.Direction.LEFT);
-      //sendLogMessage("Iceberg at 12 o'clock. Heading 9!");
-      return;
-    }
-    /*** Si le robot n'est pas en mode tourner et qu'il detecte un wall alors avance***/
-    if (!turnNorthTask && !turnLeftTask && detectFront().getObjectType()!=IFrontSensorResult.Types.WALL) {
-      myMove(); //And what to do when blind blocked?
-      //sendLogMessage("Moving a head. Waza!");
-      return;
-    }
+    stepTurn(Direction.LEFT);
   }
   private void myMove(){
     isMoving=true;

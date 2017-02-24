@@ -14,6 +14,7 @@ import characteristics.IFrontSensorResult;
 import characteristics.IRadarResult;
 
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.Random;
 
 import javax.jws.soap.SOAPBinding.ParameterStyle;
@@ -27,10 +28,9 @@ public class FightBrain extends Brain {
 	private static final int CARREFOUR = 0x5EC0;
 	private static final int DARTY = 0x333;
 	private static final int UNDEFINED = 0xBADC0DE;
-
+	enum BOUSSOLE { DEVANT, DERRIERE, GAUCHE, DROITE};
 	// ---VARIABLES---//
-	private boolean turnNorthTask, turnLeftTask, turnRightTask, dodgeTask, moveBackTask;
-	private double endTaskDirection;
+	private boolean dodgeLeftTask, dodgeRightTask, dodgeTask, moveFrontTask, moveBackTask;
 	private double distLateral, distTop;
 	private boolean isMoving;
 	private int whoAmI;
@@ -48,11 +48,11 @@ public class FightBrain extends Brain {
 		whoAmI = lol++;
 
 		// INIT
-		turnNorthTask = false;
-		turnLeftTask = false;
-		turnRightTask = false;
+		moveFrontTask = false;
 		moveBackTask = false;
 		dodgeTask = false;
+		dodgeLeftTask = false;
+		dodgeRightTask = false;
 		isMoving = false;
 	}
 
@@ -74,8 +74,7 @@ public class FightBrain extends Brain {
 		/*** Permet de reculer lorsque trop rpes ***/
 		if(moveBackTask && nbTurns == 0){
 			moveBackTask = false;
-			stepTurn(Math.random() > 0.7 ? Direction.RIGHT : Direction.LEFT);
-			System.out.println("Toz");
+			dodgeObstacle();
 			return;
 		}
 		if (moveBackTask && nbTurns > 0) {
@@ -83,9 +82,22 @@ public class FightBrain extends Brain {
 			nbTurns--;
 	        return;
 		}
+		
+		/*** Permet de reculer lorsque trop rpes ***/
+		if(moveFrontTask && nbTurns == 0){
+			moveFrontTask = false;
+			return;
+		}
+		if (moveFrontTask && nbTurns > 0) {
+			move();
+			nbTurns--;
+	        return;
+		}
 		/*** Permet au robot de se positioner vers son NORD ***/
 		if (dodgeTask && nbTurns == 0) {
 			dodgeTask = false;
+			dodgeLeftTask = false;
+			dodgeRightTask = false;
 			myMove();
 			return;
 		}
@@ -94,56 +106,30 @@ public class FightBrain extends Brain {
 		 * jusqu'a atteindre le NORD
 		 ***/
 		if (dodgeTask && nbTurns > 0) {
-	        stepTurn(Direction.LEFT);
+			if(dodgeLeftTask)
+				stepTurn(Direction.LEFT);
+			else
+				stepTurn(Direction.RIGHT);
 	        nbTurns--;
 	        return;
-		}
-
-		/*** Permet au robot de se positioner vers son NORD ***/
-		if (turnNorthTask && isHeading(Parameters.NORTH)) {
-			turnNorthTask = false;
-			myMove();
-			return;
-		}
-		/***
-		 * Tant que le robot n'est pas bien positionne on tourne a droite
-		 * jusqu'a atteindre le NORD
-		 ***/
-		if (turnNorthTask && !isHeading(Parameters.NORTH)) {
-			stepTurn(Parameters.Direction.RIGHT);
-			return;
 		}
 
 		/***
 		 * Si le robot n'est pas en mode tourner et qu'il detecte un wall alors
 		 * tourne a gauche
 		 ***/
-		if (!turnNorthTask && !turnLeftTask && (detectFront().getObjectType() == IFrontSensorResult.Types.WALL ||  detectFront().getObjectType() == IFrontSensorResult.Types.Wreck)) {
-			dodgeLeft();
-			return;
-		}
-
-		/** MA PARTIE **/
-		/***
-		 * Si le robot n'est pas en mode tourner et qu'il detecte un allie qui
-		 * tourne alors il ya comportement
-		 ***/
-		if (!turnNorthTask && !turnLeftTask && detectFront().getObjectType() == IFrontSensorResult.Types.TeamMainBot) {
-			radarResults = detectRadar();
-			for (IRadarResult r : radarResults) {
-				if (r.getObjectType() == IRadarResult.Types.TeamMainBot) {
-					/*** Il faut tourner a gauche car le mec devant tourne ***/
-					if (r.getObjectDirection() != getHeading()) {
-						dodgeLeft();
-						return;
-					}
+		if ((detectFront().getObjectType() == IFrontSensorResult.Types.WALL ||  detectFront().getObjectType() == IFrontSensorResult.Types.Wreck)) {
+			for (IRadarResult r : detectRadar()) {
+				if(r.getObjectType() == IRadarResult.Types.Wreck){
+					dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
+					return;
 				}
 			}
-			myMove(); // And what to do when blind blocked?
+			dodgeObstacle();
 			return;
 		}
 
-		if (!turnNorthTask && !turnLeftTask) {
+		if (!dodgeTask && !moveBackTask) {
 			radarResults = detectRadar();
 			int enemyFighters = 0, enemyPatrols = 0;
 			double enemyDirection = 0;
@@ -165,8 +151,8 @@ public class FightBrain extends Brain {
 						|| r.getObjectType() == IRadarResult.Types.TeamSecondaryBot) {
 					if (isInFrontOfMe(r.getObjectDirection()) && enemyFighters + enemyPatrols == 0) {
 						doNotShoot = true;
-						if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 40) {
-							dodgeLeft();
+						if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50) {
+							dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
 							return;
 						}
 					}
@@ -174,8 +160,8 @@ public class FightBrain extends Brain {
 				}
 				/** Reculer si trop proche **/
 				if(r.getObjectType() == IRadarResult.Types.TeamMainBot || r.getObjectType() == IRadarResult.Types.TeamSecondaryBot || r.getObjectType() == IRadarResult.Types.Wreck){
-					if(r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 10 && !dodgeTask){
-						moveBackTast();
+					if(r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 20 && !dodgeTask){
+						moveBackTast(r.getObjectDirection());
 						return;
 					}
 				}
@@ -183,6 +169,7 @@ public class FightBrain extends Brain {
 
 			/*** Comporte de base lorsque dennemi detecte ***/
 			if (enemyFighters + enemyPatrols > 0) {
+				System.out.println("Jattaque");
 				attack(enemyDirection);
 				return;
 			}
@@ -203,14 +190,38 @@ public class FightBrain extends Brain {
 			return;
 		}
 	}
-	private void dodgeLeft(){
+	
+	
+	private void dodgeObstacle(){
 		dodgeTask = true;
-		nbTurns = rand.nextInt(20);
+		if(Math.random() > 0.5){
+			dodgeLeftTask = true;
+		}else{
+			dodgeRightTask = true;
+		}
+		nbTurns = rand.nextInt(40);
 	}
-	private void moveBackTast(){
-		moveBack();
-		moveBackTask = true;
-		nbTurns = rand.nextInt(20);
+	private void dodgeObstacle(double pos, double distance){
+		dodgeTask = true;
+		if(isADroite(pos) && isDevant(pos)){
+			dodgeLeftTask = true;
+		}else{
+			if(isDevant(pos)){
+			dodgeRightTask = true;
+			}else
+				return;
+		}
+		nbTurns = rand.nextInt(40);
+	}
+	private void moveBackTast(double pos){
+		if(isDerriere(pos)){
+			System.out.println("Je vais devant");
+			moveFrontTask = true;
+		}else{
+			System.out.println("Je vais derriere");
+			moveBackTask = true;
+		}
+		nbTurns = rand.nextInt(40);
 	}
 	private void myMove() {
 		isMoving = !isMoving;
@@ -223,11 +234,17 @@ public class FightBrain extends Brain {
 		isMoving = !isMoving;
 		if(isMoving){
 				moveBack();
+				return;
 		}
 		else if(!doNotShoot){
 			fire(enemyDirection);
+			return;
 		}
-		fire(enemyDirection);
+		if(Math.random() >= 0.5) {
+			stepTurn(Direction.LEFT);
+		}else{
+			stepTurn(Direction.RIGHT);
+		}
 	}
 
 	private boolean isHeading(double dir) {
@@ -243,5 +260,26 @@ public class FightBrain extends Brain {
 		double right = -0.15 * Math.PI;
 		boolean res = enemy <= (heading + left) % (2*Math.PI) && enemy >= (heading + right) % (2*Math.PI);
 		return res;
+	}
+	private boolean isDevant(double pos){
+		double heading = getHeading();
+		double left = 0.5 * Math.PI;
+		System.out.println("POs = "+pos+" HEADING "+heading+" Left "+((heading + left) % (2*Math.PI))+" right "+((heading - left) % (2*Math.PI))+" res "+(pos <= (heading + left) % (2*Math.PI) && pos >= (heading - left) % (2*Math.PI)));
+		return pos <= (heading + left) % (2*Math.PI) && pos >= (heading - left) % (2*Math.PI);
+	}
+	
+	private boolean isDerriere(double pos){
+		return !isDevant(pos);
+	}
+	
+	private boolean isAGauche(double pos){
+		double heading = getHeading();
+		double left =Math.PI;
+		System.out.println("POs = "+pos+" HEADING "+heading+" Right "+(heading % (2 * Math.PI))+" Left "+((heading - left) % (2 * Math.PI))+" resultat = "+(pos <= heading % (2 * Math.PI) && pos >= (heading - left) % (2 * Math.PI)));
+		return pos <= heading % (2 * Math.PI) && pos >= (heading - left) % (2 * Math.PI);
+	}
+	
+	private boolean isADroite(double pos){
+		return !isAGauche(pos);
 	}
 }
