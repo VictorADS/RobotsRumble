@@ -30,7 +30,7 @@ public class Parameters {
                              teamAMainBotSpeed = 3, //1 unit = 1mm, distance performed at step movement
                              teamAMainBotStepTurnAngle = 0.01*Math.PI, //trigonometric unit, angle performed at step turn action
                              teamAMainBotHealth = 300, //FICTIONAL SIMOVIES
-                             teamAMainBot1InitX = 400, //1 unit = 1mm, coordinate of central point
+                             teamAMainBot1InitX = 200, //1 unit = 1mm, coordinate of central point
                              teamAMainBot1InitY = 800, //1 unit = 1mm, coordinate of central point
                              teamAMainBot1InitHeading = NORTH, //clockwise trigonometric unit, according to screen pixel coordinate reference
                              teamAMainBot2InitX = 200, //1 unit = 1mm, coordinate of central point

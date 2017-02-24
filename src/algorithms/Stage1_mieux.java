@@ -62,7 +62,7 @@ public class Stage1_mieux extends Brain {
 //    if (whoAmI == ROCKY) {
 //      sendLogMessage("position ("+(int)myX+", "+(int)myY+"). Avec un heading De "+getHeading());
 //    }
-//
+
 //    //AUTOMATON
 //    
 //    /*** Permet au robot de se positioner vers son NORD ***/
