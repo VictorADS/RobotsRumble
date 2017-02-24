@@ -15,7 +15,6 @@ import characteristics.IRadarResult;
 
 import java.awt.Point;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.Random;
 
 import javax.jws.soap.SOAPBinding.ParameterStyle;
@@ -26,7 +25,7 @@ public class FightBrain extends Brain {
 	private static final double HEADINGPRECISION = 0.001;
 	private static final double ANGLEPRECISION = 0.1;
 	// ---VARIABLES---//
-	private boolean repositioningTask, dodgeLeftTask, dodgeRightTask, dodgeTask, moveFrontTask, moveBackTask;
+	private boolean repositioningTask, waitTask, dodgeLeftTask, dodgeRightTask, dodgeTask, moveFrontTask, moveBackTask;
 	private double distLateral, distTop;
 	private double endRepositioningDirection;
 	private boolean isMoving;
@@ -57,6 +56,7 @@ public class FightBrain extends Brain {
 			break;
 		}
 		// INIT
+		waitTask = false;
 		moveFrontTask = false;
 		moveBackTask = false;
 		dodgeTask = false;
@@ -76,25 +76,30 @@ public class FightBrain extends Brain {
 			isMoving = false;
 		}
 		sendLogMessage("position ("+myCoords.x+", "+(int)myCoords.y+"). Avec un heading De "+getHeading());
-		if(whoAmI == 1){ // Leader est whoAmI = 1
-			broadcast(whoAmI+"-"+myCoords.x+"-"+myCoords.y);
-			for(String s : fetchAllMessages()){
-				System.out.println(s+" et "+s.startsWith("Je suis"));
-				if(s.startsWith("Je suis"))
-					return;
-			}
-		}
+//		if(whoAmI == 1){ // Leader est whoAmI = 1
+//			broadcast(whoAmI+"-"+myCoords.x+"-"+myCoords.y);
+//			waitTask = false;
+//			for(String s : fetchAllMessages()){
+//				if(s.startsWith("Je suis"))
+//					waitTask = true;
+//			}
+//		}
 		//AUTOMATON
+		if(waitTask)
+			return;
 		/*** Permet de se positioner pour se rapproche du leader ***/
-		if(repositioningTask && isHeading(endRepositioningDirection)){
-			isMoving = true;
-			move();
-			repositioningTask = false;
-			return;
-		}
-		if(repositioningTask && !isHeading(endRepositioningDirection)){
-			stepTurn(Parameters.Direction.RIGHT);
-			return;
+		if(repositioningTask){
+			broadcast("Je suis trop loin attend moi");
+			if(isHeading(endRepositioningDirection)){
+				isMoving = true;
+				System.out.println(getHeading()+" et "+endRepositioningDirection);
+				move();
+				repositioningTask = false;
+				return;
+			}else{
+				stepTurn(Parameters.Direction.RIGHT);
+				return;
+			}
 		}
 		/*** Permet de reculer lorsque trop rpes ***/
 		if(moveBackTask && nbTurns == 0){
@@ -138,20 +143,6 @@ public class FightBrain extends Brain {
 	        return;
 		}
 
-		/***
-		 * Si le robot n'est pas en mode tourner et qu'il detecte un wall alors
-		 * tourne a gauche
-		 ***/
-		if ((detectFront().getObjectType() == IFrontSensorResult.Types.WALL ||  detectFront().getObjectType() == IFrontSensorResult.Types.Wreck)) {
-			for (IRadarResult r : detectRadar()) {
-				if(r.getObjectType() == IRadarResult.Types.Wreck && r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50){
-					dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
-					return;
-				}
-			}
-			dodgeObstacle();
-			return;
-		}
 
 		if (!dodgeTask && !moveBackTask) {
 			radarResults = detectRadar();
@@ -204,26 +195,41 @@ public class FightBrain extends Brain {
 				return;
 			}
 		}
-		// Ici on essaye de rester close sinon random
-		if(whoAmI != 1){
-			for(String s : fetchAllMessages()){
-				String tab[] = s.split("-");
-				if(tab.length <= 1)
-					continue;
-				Point leaderCoord = new Point(Integer.parseInt(tab[1]), Integer.parseInt(tab[2]));
-				if(leaderCoord.distance(myCoords) >= 500){
-					repositioningTask = true;
-					broadcast("Je suis trop loin attend moi");
-					approximate(leaderCoord);
+		
+		/***
+		 * Si le robot n'est pas en mode tourner et qu'il detecte un wall alors
+		 * tourne a gauche
+		 ***/
+		if ((detectFront().getObjectType() == IFrontSensorResult.Types.WALL ||  detectFront().getObjectType() == IFrontSensorResult.Types.Wreck)) {
+			for (IRadarResult r : detectRadar()) {
+				if(r.getObjectType() == IRadarResult.Types.Wreck && r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50){
+					dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
 					return;
 				}
 			}
+			dodgeObstacle();
+			return;
 		}
+
+//		// Ici on essaye de rester close sinon random
+//		if(whoAmI != 1){
+//			for(String s : fetchAllMessages()){
+//				String tab[] = s.split("-");
+//				if(tab.length <= 1)
+//					continue;
+//				Point leaderCoord = new Point(Integer.parseInt(tab[1]), Integer.parseInt(tab[2]));
+//				if(leaderCoord.distance(myCoords) >= 300){
+//					repositioningTask = true;
+//					broadcast("Je suis trop loin attend moi");
+//					approximate(leaderCoord);
+//					return;
+//				}
+//			}
+//		}
 		repositioningTask = false;
 		moveRandom();
 	}
 	
-
 
 	private void moveRandom(){
 		/*** DEFAULT COMPORTEMENT ***/
@@ -301,7 +307,9 @@ public class FightBrain extends Brain {
 	}
 
 	private boolean isHeading(double dir) {
-		return Math.abs(Math.sin(getHeading() - dir)) < HEADINGPRECISION;
+	    boolean res = Math.abs((getHeading()%(2 * Math.PI))-dir)<ANGLEPRECISION;
+	    System.out.println("On a "+String.format("%.2f",getHeading()% (2 * Math.PI))+" et "+dir+" cela nous donne "+res);
+	    return res;
 	}
 
 	private boolean isInFrontOfMe(Double enemy) {
@@ -367,8 +375,8 @@ public class FightBrain extends Brain {
 	
 	private void approximate(Point leaderCoord) {
 		isMoving = false;
-		if(myCoords.x >= leaderCoord.x - 250  && myCoords.x <= leaderCoord.x + 250){
-			if(myCoords.y >= leaderCoord.y - 250 && myCoords.y <= leaderCoord.y + 250){
+		if(myCoords.x >= leaderCoord.x - 150  && myCoords.x <= leaderCoord.x + 150){
+			if(myCoords.y >= leaderCoord.y - 150 && myCoords.y <= leaderCoord.y + 150){
 				moveRandom(); // Cas random au cas ou
 			}else{//Sinon il faut se rapproche du Y
 				if(myCoords.y > leaderCoord.y){
@@ -387,15 +395,15 @@ public class FightBrain extends Brain {
 	}
 	/**** COMMANDE TO MOVE ***/
 	private void monter(){
-		endRepositioningDirection = Parameters.SOUTH;
+		endRepositioningDirection = Parameters.NORTH + (2 * Math.PI);
 	}
 	private void descendre(){
-		endRepositioningDirection = Parameters.NORTH;
+		endRepositioningDirection = Parameters.SOUTH;
 	}
 	private void gauche(){
-		endRepositioningDirection = Parameters.EAST;
+		endRepositioningDirection = Parameters.WEST;
 	}
 	private void droite(){
-		endRepositioningDirection = Parameters.WEST;
+		endRepositioningDirection = Parameters.EAST;
 	}
 }
