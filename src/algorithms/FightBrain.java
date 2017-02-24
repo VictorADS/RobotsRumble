@@ -34,6 +34,7 @@ public class FightBrain extends Brain {
 	private Point  myCoords;
 	private boolean doNotShoot;
 	private int nbTurns = 0;
+	private boolean shouldMove;
 	private static Random rand = new Random(); 
 	// ---CONSTRUCTORS---//
 	public FightBrain() {
@@ -63,29 +64,37 @@ public class FightBrain extends Brain {
 		repositioningTask= false;
 		dodgeRightTask = false;
 		isMoving = false;
+		shouldMove = false;
 	}
 
 	public void step() {
 		ArrayList<IRadarResult> radarResults;
 		if (getHealth() <= 0)
 			return;
-		if(whoAmI == 2)
-			return;
 		if (isMoving) {
 			myCoords.setLocation(myCoords.getX() + Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() + Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
+			isMoving = false;
 		}
 		sendLogMessage("position ("+myCoords.x+", "+(int)myCoords.y+"). Avec un heading De "+getHeading());
-		if(whoAmI == 1) // Leader est whoAmI = 1
+		if(whoAmI == 1){ // Leader est whoAmI = 1
 			broadcast(whoAmI+"-"+myCoords.x+"-"+myCoords.y);
+			for(String s : fetchAllMessages()){
+				System.out.println(s+" et "+s.startsWith("Je suis"));
+				if(s.startsWith("Je suis"))
+					return;
+			}
+		}
 		//AUTOMATON
 		/*** Permet de se positioner pour se rapproche du leader ***/
 		if(repositioningTask && isHeading(endRepositioningDirection)){
-			System.out.println("Jai atteint mon objectif javance ");
+			isMoving = true;
 			move();
 			repositioningTask = false;
+			return;
 		}
 		if(repositioningTask && !isHeading(endRepositioningDirection)){
 			stepTurn(Parameters.Direction.RIGHT);
+			return;
 		}
 		/*** Permet de reculer lorsque trop rpes ***/
 		if(moveBackTask && nbTurns == 0){
@@ -199,10 +208,12 @@ public class FightBrain extends Brain {
 		if(whoAmI != 1){
 			for(String s : fetchAllMessages()){
 				String tab[] = s.split("-");
+				if(tab.length <= 1)
+					continue;
 				Point leaderCoord = new Point(Integer.parseInt(tab[1]), Integer.parseInt(tab[2]));
-				if(leaderCoord.distance(myCoords) >= 800){
+				if(leaderCoord.distance(myCoords) >= 500){
 					repositioningTask = true;
-					System.out.println("Mon leader est trop loin "+leaderCoord+" je le rejoins "+myCoords);
+					broadcast("Je suis trop loin attend moi");
 					approximate(leaderCoord);
 					return;
 				}
@@ -251,11 +262,10 @@ public class FightBrain extends Brain {
 			if(isAGauche(pos) && isDevant(pos)){
 			dodgeRightTask = true;
 			}else{
+				isMoving = true;
 				if(isDevant(pos)){
-					isMoving = true;
 					moveBackTask = true;
 				}else{
-					isMoving = true;
 					moveFrontTask = true;
 				}
 			}
@@ -263,19 +273,20 @@ public class FightBrain extends Brain {
 		nbTurns = rand.nextInt(40);
 	}
 	private void moveBackTast(double pos){
+		isMoving = true;
 		if(isDerriere(pos)){
 			moveFrontTask = true;
-			isMoving = true;
 		}else{
 			moveBackTask = true;
-			isMoving = true;
 		}
 		nbTurns = rand.nextInt(40);
 	}
 
 	private void attack(double enemyDirection) {
-		isMoving = !isMoving;
-		if(isMoving){
+		shouldMove = !shouldMove;
+		isMoving = false;
+		if(shouldMove){
+		//	isMoving = true;
 			if(isDerriere(enemyDirection)){
 				move();
 				return;
@@ -286,11 +297,6 @@ public class FightBrain extends Brain {
 		else if(!doNotShoot){
 			fire(enemyDirection);
 			return;
-		}
-		if(Math.random() >= 0.5) {
-			stepTurn(Direction.LEFT);
-		}else{
-			stepTurn(Direction.RIGHT);
 		}
 	}
 
@@ -360,39 +366,36 @@ public class FightBrain extends Brain {
 	
 	
 	private void approximate(Point leaderCoord) {
-		if(myCoords.x >= leaderCoord.x - 400  && myCoords.x <= leaderCoord.x + 400){
-			if(myCoords.y >= leaderCoord.y - 400 && myCoords.y <= leaderCoord.y + 400){
+		isMoving = false;
+		if(myCoords.x >= leaderCoord.x - 250  && myCoords.x <= leaderCoord.x + 250){
+			if(myCoords.y >= leaderCoord.y - 250 && myCoords.y <= leaderCoord.y + 250){
 				moveRandom(); // Cas random au cas ou
 			}else{//Sinon il faut se rapproche du Y
 				if(myCoords.y > leaderCoord.y){
 					monter();
-					System.out.println("Jai choisi de monter ");
 				}else{
 					descendre();
-					System.out.println("Jai choisi de descendre ");
 				}
 			}
 		}else{ // Sinon rapproche du X
 			if(myCoords.x > leaderCoord.x ){
 				gauche();
-				System.out.println("Jai choisi de gauche ");
 			}else{
 				droite();
-				System.out.println("Jai choisi de droite ");
 			}
 		}
 	}
 	/**** COMMANDE TO MOVE ***/
 	private void monter(){
-		endRepositioningDirection = Parameters.NORTH;
-	}
-	private void descendre(){
 		endRepositioningDirection = Parameters.SOUTH;
 	}
+	private void descendre(){
+		endRepositioningDirection = Parameters.NORTH;
+	}
 	private void gauche(){
-		endRepositioningDirection = Parameters.WEST;
+		endRepositioningDirection = Parameters.EAST;
 	}
 	private void droite(){
-		endRepositioningDirection = Parameters.EAST;
+		endRepositioningDirection = Parameters.WEST;
 	}
 }
