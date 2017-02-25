@@ -7,7 +7,6 @@
 package algorithms;
 
 import robotsimulator.Brain;
-import characteristics.IFrontSensorResult.Types;
 import characteristics.Parameters.Direction;
 import characteristics.Parameters;
 import characteristics.IFrontSensorResult;
@@ -17,16 +16,14 @@ import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Random;
 
-import javax.jws.soap.SOAPBinding.ParameterStyle;
-import javax.swing.text.AbstractDocument.LeafElement;
 
 public class FightBrain extends Brain {
 	// ---PARAMETERS---//
 	private static final double HEADINGPRECISION = 0.001;
 	private static final double ANGLEPRECISION = 0.1;
+	private static final int DISTANCE_TO_LEADER = 400;
 	// ---VARIABLES---//
 	private boolean repositioningTask, waitTask, dodgeLeftTask, dodgeRightTask, dodgeTask, moveFrontTask, moveBackTask;
-	private double distLateral, distTop;
 	private double endRepositioningDirection;
 	private boolean isMoving;
 	private int whoAmI;
@@ -68,38 +65,63 @@ public class FightBrain extends Brain {
 	}
 
 	public void step() {
+		int enemyFighters, enemyPatrols;
+		double enemyDirection;
 		ArrayList<IRadarResult> radarResults;
 		if (getHealth() <= 0)
 			return;
-		if (isMoving) {
-			myCoords.setLocation(myCoords.getX() + Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() + Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
-			isMoving = false;
-		}
 		sendLogMessage("position ("+myCoords.x+", "+(int)myCoords.y+"). Avec un heading De "+getHeading());
-//		if(whoAmI == 1){ // Leader est whoAmI = 1
-//			broadcast(whoAmI+"-"+myCoords.x+"-"+myCoords.y);
-//			waitTask = false;
-//			for(String s : fetchAllMessages()){
-//				if(s.startsWith("Je suis"))
-//					waitTask = true;
-//			}
-//		}
+		if(whoAmI == 1){ // Leader est whoAmI = 1
+			broadcast(whoAmI+"-"+myCoords.x+"-"+myCoords.y);
+			waitTask = false;
+			for(String s : fetchAllMessages()){
+				if(s.startsWith("Je suis"))
+					waitTask = true;
+			}
+		}
 		//AUTOMATON
-		if(waitTask)
+		if(waitTask){
+			enemyFighters = 0;
+			enemyPatrols = 0;
+			enemyDirection = 0;
+			doNotShoot = false;
+			for (IRadarResult r : detectRadar()) {
+				/** Focus le Main **/
+				if (r.getObjectType() == IRadarResult.Types.OpponentMainBot) {
+					enemyFighters++;
+					enemyDirection = r.getObjectDirection();
+				}
+				/** Au cas ou il ya un secondary **/
+				if (r.getObjectType() == IRadarResult.Types.OpponentSecondaryBot) {
+					if (enemyFighters == 0)
+						enemyDirection = r.getObjectDirection();
+					enemyPatrols++;
+				}
+			}
+			if (enemyFighters + enemyPatrols > 0) {
+				attack(enemyDirection);
+			}
 			return;
+		}
 		/*** Permet de se positioner pour se rapproche du leader ***/
 		if(repositioningTask){
 			broadcast("Je suis trop loin attend moi");
 			if(isHeading(endRepositioningDirection)){
 				isMoving = true;
-				System.out.println(getHeading()+" et "+endRepositioningDirection);
-				move();
+				MyMove();
 				repositioningTask = false;
 				return;
 			}else{
-				stepTurn(Parameters.Direction.RIGHT);
+				double heading = getHeading() % (2 * Math.PI);
+				if(heading < 0 )
+					heading += 2 * Math.PI;
+				if(heading - endRepositioningDirection < Math.PI && heading -endRepositioningDirection >= 0)
+					stepTurn(Direction.LEFT);
+				else
+					stepTurn(Direction.RIGHT);
 				return;
 			}
+			
 		}
 		/*** Permet de reculer lorsque trop rpes ***/
 		if(moveBackTask && nbTurns == 0){
@@ -108,7 +130,7 @@ public class FightBrain extends Brain {
 			return;
 		}
 		if (moveBackTask && nbTurns > 0) {
-			moveBack();
+			MyMoveBack();
 			nbTurns--;
 	        return;
 		}
@@ -119,7 +141,7 @@ public class FightBrain extends Brain {
 			return;
 		}
 		if (moveFrontTask && nbTurns > 0) {
-			move();
+			MyMove();
 			nbTurns--;
 	        return;
 		}
@@ -146,8 +168,9 @@ public class FightBrain extends Brain {
 
 		if (!dodgeTask && !moveBackTask) {
 			radarResults = detectRadar();
-			int enemyFighters = 0, enemyPatrols = 0;
-			double enemyDirection = 0;
+			enemyFighters = 0;
+			enemyPatrols = 0;
+			enemyDirection = 0;
 			doNotShoot = false;
 			for (IRadarResult r : radarResults) {
 				/** Focus le Main **/
@@ -212,32 +235,40 @@ public class FightBrain extends Brain {
 		}
 
 //		// Ici on essaye de rester close sinon random
-//		if(whoAmI != 1){
-//			for(String s : fetchAllMessages()){
-//				String tab[] = s.split("-");
-//				if(tab.length <= 1)
-//					continue;
-//				Point leaderCoord = new Point(Integer.parseInt(tab[1]), Integer.parseInt(tab[2]));
-//				if(leaderCoord.distance(myCoords) >= 300){
-//					repositioningTask = true;
-//					broadcast("Je suis trop loin attend moi");
-//					approximate(leaderCoord);
-//					return;
-//				}
-//			}
-//		}
+		if(whoAmI != 1){
+			for(String s : fetchAllMessages()){
+				String tab[] = s.split("-");
+				if(tab.length <= 1)
+					continue;
+				System.out.println("Jai recu "+tab[0]+"-"+tab[1]+"-"+tab[2]);
+				Point leaderCoord = new Point(Integer.parseInt(tab[1]), Integer.parseInt(tab[2]));
+				if(leaderCoord.distance(myCoords) >= DISTANCE_TO_LEADER){
+					repositioningTask = true;
+					broadcast("Je suis trop loin attend moi");
+					approximate(leaderCoord);
+					return;
+				}
+			}
+		}
 		repositioningTask = false;
 		moveRandom();
+		
 	}
-	
-
+	private void MyMove(){
+		myCoords.setLocation(myCoords.getX() + Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() + Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
+		move();
+	}
+	private void MyMoveBack(){
+		myCoords.setLocation(myCoords.getX() - Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() - Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
+		moveBack();
+	}
 	private void moveRandom(){
 		/*** DEFAULT COMPORTEMENT ***/
 		double randDouble = Math.random();
 		isMoving = false;
 		if(randDouble <= 0.60){
 			isMoving = true;
-			move();
+			MyMove();
 			return;
 		}
 		if(randDouble <= 0.80){
@@ -294,10 +325,10 @@ public class FightBrain extends Brain {
 		if(shouldMove){
 		//	isMoving = true;
 			if(isDerriere(enemyDirection)){
-				move();
+				MyMove();
 				return;
 			}else{
-				moveBack();
+				MyMoveBack();
 			}
 		}
 		else if(!doNotShoot){
@@ -307,9 +338,14 @@ public class FightBrain extends Brain {
 	}
 
 	private boolean isHeading(double dir) {
-	    boolean res = Math.abs((getHeading()%(2 * Math.PI))-dir)<ANGLEPRECISION;
-	    System.out.println("On a "+String.format("%.2f",getHeading()% (2 * Math.PI))+" et "+dir+" cela nous donne "+res);
-	    return res;
+		double heading = getHeading()%(2 * Math.PI);
+		if(heading < 0)
+			heading = heading + (2 * Math.PI);
+		System.out.println("heading de "+ (heading -dir));
+		if(heading- dir < 0)
+			return Math.abs(heading - dir + (2 * Math.PI)) < ANGLEPRECISION;
+		else
+			return Math.abs(heading - dir)<ANGLEPRECISION;
 	}
 
 	private boolean isInFrontOfMe(Double enemy) {
@@ -375,8 +411,8 @@ public class FightBrain extends Brain {
 	
 	private void approximate(Point leaderCoord) {
 		isMoving = false;
-		if(myCoords.x >= leaderCoord.x - 150  && myCoords.x <= leaderCoord.x + 150){
-			if(myCoords.y >= leaderCoord.y - 150 && myCoords.y <= leaderCoord.y + 150){
+		if(myCoords.x >= leaderCoord.x - DISTANCE_TO_LEADER/2  && myCoords.x <= leaderCoord.x + DISTANCE_TO_LEADER/2){
+			if(myCoords.y >= leaderCoord.y - DISTANCE_TO_LEADER/2 && myCoords.y <= leaderCoord.y + DISTANCE_TO_LEADER/2){
 				moveRandom(); // Cas random au cas ou
 			}else{//Sinon il faut se rapproche du Y
 				if(myCoords.y > leaderCoord.y){
