@@ -19,7 +19,7 @@ import java.util.Random;
 
 public class FightBrain extends Brain {
 	// ---PARAMETERS---//
-	private static final double HEADINGPRECISION = 0.02;
+	private static final double HEADINGPRECISION = 0.05;
 	private static final double ANGLEPRECISION = 0.01;
 	private static final int DISTANCE_TO_LEADER = 400;
 	// ---VARIABLES---//
@@ -68,7 +68,7 @@ public class FightBrain extends Brain {
 		int enemyFighters, enemyPatrols;
 		double enemyDirection;
 		ArrayList<IRadarResult> radarResults;
-		if (getHealth() <= 0 || whoAmI == 0)
+		if (getHealth() <= 0)
 			return;
 		sendLogMessage("position ("+myCoords.x+", "+(int)myCoords.y+"). Avec un heading De "+getHeading());
 		
@@ -397,33 +397,32 @@ public class FightBrain extends Brain {
 			MyMove();
 			return;
 		}else{
-			System.out.println("Le heading nest pas bon mdr "+getHeading()+" et "+endRepositioningDirection);
+			System.out.println("jai un heading pourri de "+getHeading());
 			stepTurn(whereToTurn(endRepositioningDirection));
 			return;
 		}
 	}
 	private Direction whereToTurn(double pos){
-		double headingInit = getHeading() % (6.283185);
+		double headingInit = getHeading() % (2 * Math.PI);
 		if(headingInit < 0)
 			headingInit = headingInit + 2 * Math.PI;
-		pos =  pos % (6.283185);
+		pos =  pos % (2 * Math.PI);
 		if( pos < 0)
 			pos = pos + 2 * Math.PI;
 		int leftTurns = 0, rightTurns = 0;
 		double heading = headingInit;
 		while(!isHeading(heading, pos)){
 			rightTurns++;
-			heading = (heading + Parameters.teamAMainBotStepTurnAngle) % (6.283185);
+			heading = (heading + Parameters.teamAMainBotStepTurnAngle) % (2 * Math.PI);
 
 		}
 		heading = headingInit;
 		while(!isHeading(heading, pos)){
 			leftTurns++;
-			heading = (heading - Parameters.teamAMainBotStepTurnAngle) % (6.283185);
+			heading = (heading - Parameters.teamAMainBotStepTurnAngle) % (2 * Math.PI);
 			if(heading < 0)
-				heading = (heading + 2 * Math.PI) % (6.283185);
+				heading = (heading + 2 * Math.PI) % (2 * Math.PI);
 		}
-		System.out.println("Where to turn "+headingInit+" et "+rightTurns+" et "+leftTurns+" et "+pos);
 		return rightTurns < leftTurns ? Direction.RIGHT : Direction.LEFT;
 	}
 	/**** COMMANDE TO MOVE ***/
