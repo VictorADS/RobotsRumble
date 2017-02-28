@@ -19,7 +19,7 @@ import java.util.Random;
 
 public class FightBrain extends Brain {
 	// ---PARAMETERS---//
-	private static final double HEADINGPRECISION = 0.001;
+	private static final double HEADINGPRECISION = 0.02;
 	private static final double ANGLEPRECISION = 0.01;
 	private static final int DISTANCE_TO_LEADER = 400;
 	// ---VARIABLES---//
@@ -179,15 +179,13 @@ public class FightBrain extends Brain {
 		 * Si le robot n'est pas en mode tourner et qu'il detecte un wall alors
 		 * tourne a gauche
 		 ***/
-		if ((detectFront().getObjectType() == IFrontSensorResult.Types.WALL ||  detectFront().getObjectType() == IFrontSensorResult.Types.Wreck)) {
+		if (detectFront().getObjectType() == IFrontSensorResult.Types.Wreck) {
 			for (IRadarResult r : detectRadar()) {
 				if(r.getObjectType() == IRadarResult.Types.Wreck && r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50){
 					dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
 					return;
 				}
 			}
-			dodgeObstacle();
-			return;
 		}
 		
 		/*** Permet de se positioner pour se rapproche du leader ***/
@@ -196,6 +194,11 @@ public class FightBrain extends Brain {
 			return;
 		}
 		
+		if (detectFront().getObjectType() == IFrontSensorResult.Types.WALL) {
+			dodgeObstacle();
+			return;
+		}
+
 //		// Ici on essaye de rester close sinon random
 		ArrayList<Point> list = new ArrayList<Point>();
 		for (String s : fetchAllMessages()) {
@@ -302,16 +305,6 @@ public class FightBrain extends Brain {
 		}
 	}
 
-	private boolean isHeading(double mypos, double dir) {
-		double heading = mypos % (2 * Math.PI);
-		if(heading < 0)
-			heading = heading + (2 * Math.PI);
-		if(heading- dir < 0)
-			return Math.abs(heading - dir + (2 * Math.PI)) < HEADINGPRECISION;
-		else
-			return Math.abs(heading - dir)< HEADINGPRECISION;
-	}
-
 	private boolean isInFrontOfMe(Double enemy) {
 		double heading = getHeading();
 		double left = 0.15 * Math.PI;
@@ -372,7 +365,13 @@ public class FightBrain extends Brain {
 	}
 	
 	
-	
+	private boolean isHeading(double dir1, double dir2) {
+		dir1 = dir1 % (6.283185);
+		if(dir1 < 0)
+			dir1 = dir1 + 2 * Math.PI;
+		return Math.abs(dir1 - dir2) < ANGLEPRECISION;
+	}
+
 	private void approximate(Point leaderCoord) {
 		if(myCoords.x >= leaderCoord.x - DISTANCE_TO_LEADER  && myCoords.x <= leaderCoord.x + DISTANCE_TO_LEADER){
 			if(myCoords.y >= leaderCoord.y - DISTANCE_TO_LEADER && myCoords.y <= leaderCoord.y + DISTANCE_TO_LEADER){
@@ -394,36 +393,37 @@ public class FightBrain extends Brain {
 		MyApproximateMove();
 	}
 	private void MyApproximateMove() {
-		System.out.println("Mon heading est "+(getHeading() % (2 * Math.PI))+" le but est "+endRepositioningDirection);
 		if(isHeading(getHeading(), endRepositioningDirection)){
-			System.out.println("Javance ");
 			MyMove();
 			return;
 		}else{
-			System.out.println("Je tourne");
+			System.out.println("Le heading nest pas bon mdr "+getHeading()+" et "+endRepositioningDirection);
 			stepTurn(whereToTurn(endRepositioningDirection));
 			return;
 		}
 	}
 	private Direction whereToTurn(double pos){
-		double headingInit = getHeading() % ( 2 * Math.PI);
-		if(headingInit < 0 )
-			headingInit = headingInit + (2* Math.PI);
-		pos =  pos % ( 2 * Math.PI);
-		if(pos < 0 )
-			pos = pos + (2* Math.PI);
+		double headingInit = getHeading() % (6.283185);
+		if(headingInit < 0)
+			headingInit = headingInit + 2 * Math.PI;
+		pos =  pos % (6.283185);
+		if( pos < 0)
+			pos = pos + 2 * Math.PI;
 		int leftTurns = 0, rightTurns = 0;
 		double heading = headingInit;
 		while(!isHeading(heading, pos)){
 			rightTurns++;
-			System.out.println(heading+" et "+whereToTurn(pos)+" et "+isHeading(heading, pos));
-			heading = (heading + Parameters.teamAMainBotStepTurnAngle) % (2 * Math.PI);
+			heading = (heading + Parameters.teamAMainBotStepTurnAngle) % (6.283185);
+
 		}
 		heading = headingInit;
 		while(!isHeading(heading, pos)){
 			leftTurns++;
-			heading = (heading - Parameters.teamAMainBotStepTurnAngle) % (2 * Math.PI);
+			heading = (heading - Parameters.teamAMainBotStepTurnAngle) % (6.283185);
+			if(heading < 0)
+				heading = (heading + 2 * Math.PI) % (6.283185);
 		}
+		System.out.println("Where to turn "+headingInit+" et "+rightTurns+" et "+leftTurns+" et "+pos);
 		return rightTurns < leftTurns ? Direction.RIGHT : Direction.LEFT;
 	}
 	/**** COMMANDE TO MOVE ***/
