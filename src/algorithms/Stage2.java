@@ -29,14 +29,14 @@ public class Stage2 extends Brain {
   private double distLateral, distTop;
   private boolean isMoving;
   private int whoAmI;
-
+  private static int cpt = 0;
   //---CONSTRUCTORS---//
   public Stage2() { super(); }
 
   //---ABSTRACT-METHODS-IMPLEMENTATION---//
   public void activate() {
     //ODOMETRY CODE
-    whoAmI = ROCKY;
+    whoAmI = cpt++;
     for (IRadarResult o: detectRadar())
       if (isSameDirection(o.getObjectDirection(),Parameters.NORTH)) whoAmI=UNDEFINED;
     if (whoAmI == ROCKY){
@@ -50,6 +50,8 @@ public class Stage2 extends Brain {
     isMoving=false;
   }
   public void step() {
+	  if(whoAmI == 0)
+		  return;
     stepTurn(Direction.LEFT);
   }
   private void myMove(){

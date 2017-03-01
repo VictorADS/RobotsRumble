@@ -19,9 +19,10 @@ import java.util.Random;
 
 public class FightBrain extends Brain {
 	// ---PARAMETERS---//
-	private static final double HEADINGPRECISION = 0.05;
+	private static final double HEADINGPRECISION = 0.01;
 	private static final double ANGLEPRECISION = 0.01;
 	private static final int DISTANCE_TO_LEADER = 400;
+	private static final double DOUBLE_PI = 6.28318530;
 	// ---VARIABLES---//
 	private boolean waitTask, dodgeLeftTask, dodgeRightTask, dodgeTask, moveFrontTask, moveBackTask;
 	private double endRepositioningDirection;
@@ -75,7 +76,6 @@ public class FightBrain extends Brain {
 		/*** Si on est au point de ralliement on stop le rapprochement ***/
 		if(isAtRallyPoint(attackedFriend, myCoords)){
 			attackedFriend = null;
-			System.out.println("Je suis arrive");
 		}
 		
 		/*** Permet de reculer lorsque trop rpes ***/
@@ -188,11 +188,11 @@ public class FightBrain extends Brain {
 			}
 		}
 		
-		/*** Permet de se positioner pour se rapproche du leader ***/
-		if(attackedFriend != null){
-			approximate(attackedFriend);
-			return;
-		}
+//		/*** Permet de se positioner pour se rapproche du leader ***/
+//		if(attackedFriend != null){
+//			approximate(attackedFriend);
+//			return;
+//		}
 		
 		if (detectFront().getObjectType() == IFrontSensorResult.Types.WALL) {
 			dodgeObstacle();
@@ -203,7 +203,7 @@ public class FightBrain extends Brain {
 		ArrayList<Point> list = new ArrayList<Point>();
 		for (String s : fetchAllMessages()) {
 			String tab[] = s.split("-");
-			if (tab.length < 3 || tab[0].equals(String.valueOf(whoAmI)))
+			if (tab.length < 3 || tab[0].equals(String.valueOf(whoAmI)) || tab[1].equals("") || tab[2].equals(""))
 				continue;
 			Point leaderCoord = new Point(Integer.parseInt(tab[1]),
 					Integer.parseInt(tab[2]));
@@ -309,24 +309,24 @@ public class FightBrain extends Brain {
 		double heading = getHeading();
 		double left = 0.15 * Math.PI;
 		double right = -0.15 * Math.PI;
-		boolean res = enemy <= (heading + left) % (2*Math.PI) && enemy >= (heading + right) % (2*Math.PI);
+		boolean res = enemy <= (heading + left) % (DOUBLE_PI) && enemy >= (heading + right) % (DOUBLE_PI);
 		return res;
 	}	
 	private boolean isDevant(double pos){
 		double heading = getHeading();
 		double left = 0.5 * Math.PI;
 		if(heading < 0 )
-			heading = (heading + 2 * Math.PI) % (2 * Math.PI);
+			heading = (heading + DOUBLE_PI) % (DOUBLE_PI);
 		if(pos < 0)
-			pos = (pos + 2 * Math.PI) % (2 * Math.PI);
+			pos = (pos + DOUBLE_PI) % (DOUBLE_PI);
 		
-		double leftBorn = (heading + left) % (2*Math.PI);
-		double rightBorn = (heading - left) % (2*Math.PI);
+		double leftBorn = (heading + left) % (DOUBLE_PI);
+		double rightBorn = (heading - left) % (DOUBLE_PI);
 		if(leftBorn < 0)
-			leftBorn = (leftBorn + 2 * Math.PI) % (2 * Math.PI);
+			leftBorn = (leftBorn + DOUBLE_PI) % (DOUBLE_PI);
 		if(rightBorn < 0)
-			rightBorn = (rightBorn + 2 * Math.PI) % (2 * Math.PI);
-		if(heading - left > 0 && heading + left < 2 * Math.PI){
+			rightBorn = (rightBorn + DOUBLE_PI) % (DOUBLE_PI);
+		if(heading - left > 0 && heading + left < DOUBLE_PI){
 			return pos <= leftBorn  && pos >= rightBorn;
 		}else{
 				return pos >= rightBorn || pos <= leftBorn;
@@ -340,17 +340,17 @@ public class FightBrain extends Brain {
 	private boolean isAGauche(double pos){
 		double heading = getHeading();
 		if(heading < 0 )
-			heading = heading + 2 * Math.PI;
+			heading = heading + DOUBLE_PI;
 		if(pos < 0)
-			pos = (pos + 2 * Math.PI) % (2 * Math.PI);
+			pos = (pos + DOUBLE_PI) % (DOUBLE_PI);
 		double left = Math.PI;
-		double leftBorn = heading % (2 * Math.PI); // Heading actuel
-		double rightBorn = (heading - left) % (2 * Math.PI); // Heading - PI
+		double leftBorn = heading % (DOUBLE_PI); // Heading actuel
+		double rightBorn = (heading - left) % (DOUBLE_PI); // Heading - PI
 
 		if(leftBorn < 0)
-			leftBorn = (leftBorn + 2 * Math.PI) % (2 * Math.PI);
+			leftBorn = (leftBorn + DOUBLE_PI) % (DOUBLE_PI);
 		if(rightBorn < 0)
-			rightBorn = (rightBorn + 2 * Math.PI) % (2 * Math.PI);
+			rightBorn = (rightBorn + DOUBLE_PI) % (DOUBLE_PI);
 		
 		if(heading - Math.PI > 0){ // Cas dans les bornes
 			return pos <= leftBorn  && pos >= rightBorn ;
@@ -366,68 +366,78 @@ public class FightBrain extends Brain {
 	
 	
 	private boolean isHeading(double dir1, double dir2) {
-		dir1 = dir1 % (6.283185);
+		dir1 = dir1 % DOUBLE_PI;
 		if(dir1 < 0)
-			dir1 = dir1 + 2 * Math.PI;
-		return Math.abs(dir1 - dir2) < ANGLEPRECISION;
+			dir1 = dir1 + DOUBLE_PI;
+		double leres =  Math.abs(dir1 - dir2);
+		if(leres >= 6.28)
+			leres = 0;
+		return leres  < ANGLEPRECISION;
 	}
 
 	private void approximate(Point leaderCoord) {
+		System.out.println("Je suis en "+myCoords+" et je dois aller en "+leaderCoord);
 		if(myCoords.x >= leaderCoord.x - DISTANCE_TO_LEADER  && myCoords.x <= leaderCoord.x + DISTANCE_TO_LEADER){
 			if(myCoords.y >= leaderCoord.y - DISTANCE_TO_LEADER && myCoords.y <= leaderCoord.y + DISTANCE_TO_LEADER){
 				moveRandom(); // Cas random au cas ou
 			}else{//Sinon il faut se rapproche du Y
 				if(myCoords.y > leaderCoord.y){
 					monter();
+					System.out.println("Du coup je monte");
 				}else{
 					descendre();
+					System.out.println("Du coup je descned");
 				}
 			}
 		}else{ // Sinon rapproche du X
 			if(myCoords.x > leaderCoord.x ){
 				gauche();
+				System.out.println("Du coup je gauche");
+
 			}else{
 				droite();
+				System.out.println("Du coup je droite");
+
 			}
 		}
 		MyApproximateMove();
 	}
 	private void MyApproximateMove() {
+		
 		if(isHeading(getHeading(), endRepositioningDirection)){
 			MyMove();
 			return;
 		}else{
-			System.out.println("jai un heading pourri de "+getHeading());
 			stepTurn(whereToTurn(endRepositioningDirection));
 			return;
 		}
 	}
 	private Direction whereToTurn(double pos){
-		double headingInit = getHeading() % (2 * Math.PI);
+		double headingInit = getHeading() % (DOUBLE_PI);
 		if(headingInit < 0)
-			headingInit = headingInit + 2 * Math.PI;
-		pos =  pos % (2 * Math.PI);
+			headingInit = headingInit + DOUBLE_PI;
+		pos =  pos % (DOUBLE_PI);
 		if( pos < 0)
-			pos = pos + 2 * Math.PI;
+			pos = pos + DOUBLE_PI;
 		int leftTurns = 0, rightTurns = 0;
 		double heading = headingInit;
 		while(!isHeading(heading, pos)){
 			rightTurns++;
-			heading = (heading + Parameters.teamAMainBotStepTurnAngle) % (2 * Math.PI);
+			heading = (heading + Parameters.teamAMainBotStepTurnAngle) % (DOUBLE_PI);
 
 		}
 		heading = headingInit;
 		while(!isHeading(heading, pos)){
 			leftTurns++;
-			heading = (heading - Parameters.teamAMainBotStepTurnAngle) % (2 * Math.PI);
+			heading = (heading - Parameters.teamAMainBotStepTurnAngle) % (DOUBLE_PI);
 			if(heading < 0)
-				heading = (heading + 2 * Math.PI) % (2 * Math.PI);
+				heading = (heading + DOUBLE_PI) % (DOUBLE_PI);
 		}
 		return rightTurns < leftTurns ? Direction.RIGHT : Direction.LEFT;
 	}
 	/**** COMMANDE TO MOVE ***/
 	private void monter(){
-		endRepositioningDirection = Parameters.NORTH + (2 * Math.PI);
+		endRepositioningDirection = Parameters.NORTH + (DOUBLE_PI);
 	}
 	private void descendre(){
 		endRepositioningDirection = Parameters.SOUTH;
