@@ -6,15 +6,19 @@
  * ******************************************************/
 package algorithms;
 
-import robotsimulator.Brain;
-import characteristics.Parameters.Direction;
-import characteristics.Parameters;
-import characteristics.IFrontSensorResult;
-import characteristics.IRadarResult;
-
 import java.awt.Point;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.Random;
+
+import Utils.Pair;
+import Utils.PointDouble;
+import characteristics.IFrontSensorResult;
+import characteristics.IRadarResult;
+import characteristics.Parameters;
+import characteristics.Parameters.Direction;
+import robotsimulator.Brain;
 
 
 public class FightBrain extends Brain {
@@ -24,11 +28,10 @@ public class FightBrain extends Brain {
 	private static final int DISTANCE_TO_LEADER = 400;
 	private static final double DOUBLE_PI = 6.28318530;
 	// ---VARIABLES---//
-	private boolean waitTask, dodgeLeftTask, dodgeRightTask, dodgeTask, moveFrontTask, moveBackTask;
+	private boolean dodgeLeftTask, dodgeRightTask, dodgeTask, moveFrontTask, moveBackTask;
 	private double endRepositioningDirection;
-	private boolean isMoving;
 	private int whoAmI;
-	private Point  myCoords;
+	private PointDouble  myCoords;
 	private boolean doNotShoot;
 	private int nbTurns = 0;
 	private boolean shouldMove;
@@ -45,23 +48,21 @@ public class FightBrain extends Brain {
 		whoAmI = lol++ % 3;
 		switch(whoAmI){
 		case 0:
-			myCoords = new Point((int)Parameters.teamAMainBot1InitX,(int)Parameters.teamAMainBot1InitY);
+			myCoords = new PointDouble(Parameters.teamAMainBot1InitX,Parameters.teamAMainBot1InitY);
 			break;
 		case 1:
-			myCoords = new Point((int)Parameters.teamAMainBot2InitX,(int)Parameters.teamAMainBot2InitY);
+			myCoords = new PointDouble(Parameters.teamAMainBot2InitX,Parameters.teamAMainBot2InitY);
 			break;
 		case 2:
-			myCoords = new Point((int)Parameters.teamAMainBot3InitX,(int)Parameters.teamAMainBot3InitY);
+			myCoords = new PointDouble(Parameters.teamAMainBot3InitX,Parameters.teamAMainBot3InitY);
 			break;
 		}
 		// INIT
-		waitTask = false;
 		moveFrontTask = false;
 		moveBackTask = false;
 		dodgeTask = false;
 		dodgeLeftTask = false;
 		dodgeRightTask = false;
-		isMoving = false;
 		shouldMove = false;
 	}
 
@@ -71,7 +72,7 @@ public class FightBrain extends Brain {
 		ArrayList<IRadarResult> radarResults;
 		if (getHealth() <= 0)
 			return;
-		sendLogMessage("position ("+myCoords.x+", "+(int)myCoords.y+"). Avec un heading De "+getHeading());
+		sendLogMessage("position ("+String.format("%.2f",myCoords.x)+", "+String.format("%.2f",myCoords.y)+"). Avec un heading De "+getHeading());
 		
 		/*** Si on est au point de ralliement on stop le rapprochement ***/
 		if(isAtRallyPoint(attackedFriend, myCoords)){
@@ -126,6 +127,7 @@ public class FightBrain extends Brain {
 			enemyFighters = 0;
 			enemyPatrols = 0;
 			enemyDirection = 0;
+			HashMap<Double, Pair> obstacleList = new HashMap<>();
 			doNotShoot = false;
 			for (IRadarResult r : radarResults) {
 				/** Focus le Main **/
@@ -146,23 +148,20 @@ public class FightBrain extends Brain {
 						doNotShoot = true;
 					}
 					
-					if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50 &&  (enemyFighters+enemyPatrols) == 0) {
-						dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
-						return;
+					if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50) {
+						obstacleList.put(r.getObjectDirection(), new Pair(r.getObjectDistance(), r.getObjectRadius()));
 					}
 				}
-				
+				/** Dodge Epave **/
 				if(r.getObjectType() == IRadarResult.Types.Wreck ){
-					if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50 &&  (enemyFighters+enemyPatrols) == 0) {
-						dodgeObstacle(r.getObjectDirection(), r.getObjectDistance());
-						return;
+					if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50) {
+						obstacleList.put(r.getObjectDirection(), new Pair(r.getObjectDistance(), r.getObjectRadius()));
 					}
 				}
 				/** Reculer si trop proche **/
 				if(r.getObjectType() == IRadarResult.Types.TeamMainBot || r.getObjectType() == IRadarResult.Types.TeamSecondaryBot || r.getObjectType() == IRadarResult.Types.Wreck){
-					if(r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 20 && !dodgeTask && (enemyFighters+enemyPatrols) == 0){
-						moveBackTast(r.getObjectDirection());
-						return;
+					if(r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 20){
+						obstacleList.put(r.getObjectDirection(), new Pair(r.getObjectDistance(), r.getObjectRadius()));
 					}
 				}
 			}
@@ -172,6 +171,26 @@ public class FightBrain extends Brain {
 				attackedFriend = null;
 				attack(enemyDirection);
 				return;
+			}else{
+				double minDist = Double.MAX_VALUE;
+				double minDir = Double.MAX_VALUE;
+				for(Entry<Double,Pair> e : obstacleList.entrySet()){
+					/** Dodge the first close obstacle ***/
+					if(e.getValue().getA() < e.getValue().getB() + Parameters.teamAMainBotRadius + 20){
+						moveBackTast(e.getKey());
+						return;
+					}else{
+						if(e.getValue().getA() < minDist){
+							minDist = e.getValue().getA();
+							minDir = e.getKey(); 
+						}
+					}
+				}
+				/*** Else dodge the closest ***/
+				if(minDist != Double.MAX_VALUE){
+					dodgeObstacle(minDir, minDist);
+					return;
+				}
 			}
 		}
 		
@@ -187,14 +206,8 @@ public class FightBrain extends Brain {
 				}
 			}
 		}
-		
-//		/*** Permet de se positioner pour se rapproche du leader ***/
-//		if(attackedFriend != null){
-//			approximate(attackedFriend);
-//			return;
-//		}
-		
-		if (detectFront().getObjectType() == IFrontSensorResult.Types.WALL) {
+
+		 if (detectFront().getObjectType() == IFrontSensorResult.Types.WALL) {
 			dodgeObstacle();
 			return;
 		}
@@ -210,13 +223,14 @@ public class FightBrain extends Brain {
 			list.add(leaderCoord);
 		}
 		if(list.size() == 1 ){
+			System.out.println("Jai recu une liste");
 			attackedFriend = list.get(0);
 			approximate(attackedFriend);
 			return;
 		}
 		
 		if(list.size() == 2){
-			attackedFriend = list.get(0).distance(myCoords) < list.get(1).distance(myCoords) ? list.get(0) : list.get(1);
+			attackedFriend = myCoords.distance(list.get(0)) < myCoords.distance(list.get(1)) ? list.get(0) : list.get(1);
 			approximate(attackedFriend);
 			return;
 		}
@@ -224,6 +238,10 @@ public class FightBrain extends Brain {
 		
 	}
 	private void MyMove(){
+		double heading = getHeading() % DOUBLE_PI;
+		if(heading < 0)
+			heading = heading + DOUBLE_PI;
+		/*** Faire les 4 cas pour avancer regarde heading et X ou Y ***/
 		myCoords.setLocation(myCoords.getX() + Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() + Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
 		move();
 	}
@@ -248,10 +266,10 @@ public class FightBrain extends Brain {
 		}
 	}
 	
-	private boolean isAtRallyPoint(Point p1, Point p2){
+	private boolean isAtRallyPoint(Point p1, PointDouble p2){
 		if(p1 == null || p2 == null)
 			return false;
-		return p1.distance(p2) < DISTANCE_TO_LEADER;
+		return p2.distance(p1) < DISTANCE_TO_LEADER;
 	}
 	private void dodgeObstacle(){
 		dodgeTask = true;
@@ -290,7 +308,7 @@ public class FightBrain extends Brain {
 
 	private void attack(double enemyDirection) {
 		shouldMove = !shouldMove;
-		broadcast(whoAmI+"-"+myCoords.x+"-"+myCoords.y);
+		broadcast(whoAmI+"-"+(int)myCoords.x+"-"+(int)myCoords.y);
 		if(shouldMove){
 			if(isDerriere(enemyDirection)){
 				MyMove();
