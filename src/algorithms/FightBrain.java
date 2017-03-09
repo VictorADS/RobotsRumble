@@ -149,6 +149,7 @@ public class FightBrain extends Brain {
 					}
 					
 					if (r.getObjectDistance() <= r.getObjectRadius() + Parameters.teamAMainBotRadius + 50) {
+						System.out.println("Jai detecte un mec pres de moi");
 						obstacleList.put(r.getObjectDirection(), new Pair(r.getObjectDistance(), r.getObjectRadius()));
 					}
 				}
@@ -169,6 +170,7 @@ public class FightBrain extends Brain {
 			/*** Comporte de base lorsque dennemi detecte ***/
 			if (enemyFighters + enemyPatrols > 0) {
 				attackedFriend = null;
+				System.out.println("Jattaque "+whoAmI);
 				attack(enemyDirection);
 				return;
 			}else{
@@ -208,8 +210,10 @@ public class FightBrain extends Brain {
 		}
 
 		 if (detectFront().getObjectType() == IFrontSensorResult.Types.WALL) {
-			dodgeObstacle();
-			return;
+			if(isAtLimitFront()){
+				dodgeObstacle();
+				return;
+			}
 		}
 
 //		// Ici on essaye de rester close sinon random
@@ -223,7 +227,6 @@ public class FightBrain extends Brain {
 			list.add(leaderCoord);
 		}
 		if(list.size() == 1 ){
-			System.out.println("Jai recu une liste");
 			attackedFriend = list.get(0);
 			approximate(attackedFriend);
 			return;
@@ -237,15 +240,77 @@ public class FightBrain extends Brain {
 		moveRandom();
 		
 	}
-	private void MyMove(){
+	
+	private boolean isAtLimitBack(){
 		double heading = getHeading() % DOUBLE_PI;
 		if(heading < 0)
 			heading = heading + DOUBLE_PI;
+		
 		/*** Faire les 4 cas pour avancer regarde heading et X ou Y ***/
+		if(heading > 1.5 * Math.PI || heading < 0.5 * Math.PI){ // Cas Droite
+			if(myCoords.getX() <= 100)
+				return true;
+		}
+		
+		if(heading < 1.5 * Math.PI && heading > 0.5 * Math.PI){ // Cas Gauche
+			if(myCoords.getX() >= 2900)
+				return true;
+		}
+		if(heading >Math.PI){ // Cas Haut
+			if(myCoords.getY() >= 1000)
+				return true;
+		}
+		
+		if(heading < Math.PI){ // Cas Bas
+			if(myCoords.getY() <= 100)
+				return true;
+		}
+		return false;
+	}
+	private boolean isAtLimitFront(){
+		double heading = getHeading() % DOUBLE_PI;
+		if(heading < 0)
+			heading = heading + DOUBLE_PI;
+		
+		if(heading > 1.5 * Math.PI || heading < 0.5 * Math.PI){ // Cas Droite
+			if(myCoords.getX() >= 2900){
+				System.out.println("Limite droite avant");
+				return true;
+			}
+		}
+		
+		if(heading < 1.5 * Math.PI && heading > 0.5 * Math.PI){ // Cas Gauche
+			if(myCoords.getX() <= 100){
+				System.out.println("Limite droite ga");
+				return true;
+			}
+		}
+		if(heading >Math.PI){ // Cas Haut
+			if(myCoords.getY() <= 100){
+				System.out.println("Limite droite ha");
+				return true;
+			}
+		}
+		
+		if(heading < Math.PI){ // Cas Bas
+			if(myCoords.getY() >= 1900){
+				System.out.println("Limite droite bas");
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private void MyMove(){
+
+		if(isAtLimitFront())
+			return;
 		myCoords.setLocation(myCoords.getX() + Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() + Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
 		move();
 	}
 	private void MyMoveBack(){
+		if(isAtLimitBack())
+			return;
 		myCoords.setLocation(myCoords.getX() - Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() - Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
 		moveBack();
 	}
@@ -394,27 +459,22 @@ public class FightBrain extends Brain {
 	}
 
 	private void approximate(Point leaderCoord) {
-		System.out.println("Je suis en "+myCoords+" et je dois aller en "+leaderCoord);
 		if(myCoords.x >= leaderCoord.x - DISTANCE_TO_LEADER  && myCoords.x <= leaderCoord.x + DISTANCE_TO_LEADER){
 			if(myCoords.y >= leaderCoord.y - DISTANCE_TO_LEADER && myCoords.y <= leaderCoord.y + DISTANCE_TO_LEADER){
 				moveRandom(); // Cas random au cas ou
 			}else{//Sinon il faut se rapproche du Y
 				if(myCoords.y > leaderCoord.y){
 					monter();
-					System.out.println("Du coup je monte");
 				}else{
 					descendre();
-					System.out.println("Du coup je descned");
 				}
 			}
 		}else{ // Sinon rapproche du X
 			if(myCoords.x > leaderCoord.x ){
 				gauche();
-				System.out.println("Du coup je gauche");
 
 			}else{
 				droite();
-				System.out.println("Du coup je droite");
 
 			}
 		}

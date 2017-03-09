@@ -27,7 +27,7 @@ public class Parameters {
   public static final double teamAMainBotRadius = 50, //1 unit = 1mm, body radius
                              teamAMainBotFrontalDetectionRange = 500, //1 unit = 1mm, range of frontal sensor
                              teamAMainBotFrontalDetectionAngle = 0, //UNUSED AT THE MOMENT, frontal sensor detection angle is suppoed to be absolute
-                             teamAMainBotSpeed = 1, //1 unit = 1mm, distance performed at step movement
+                             teamAMainBotSpeed = 2, //1 unit = 1mm, distance performed at step movement
                              teamAMainBotStepTurnAngle = 0.01*Math.PI, //trigonometric unit, angle performed at step turn action
                              teamAMainBotHealth = 300, //FICTIONAL SIMOVIES
                              teamAMainBot1InitX = 200, //1 unit = 1mm, coordinate of central point
@@ -59,7 +59,7 @@ public class Parameters {
   //---TEAM-B-PARAMETERS---//
   //-----------------------//
   public static final String teamBName = "Binh Team";
-  public static final String teamBMainBotBrainClassName = "algorithms.CampFire"; //class given by name; is supposed to extends robotsimulator.Brain
+  public static final String teamBMainBotBrainClassName = "algorithms.RandomFire"; //class given by name; is supposed to extends robotsimulator.Brain
   public static final String teamBMainBotAvatar = "avatars/hollowee.png"; //path relative to location of ant build.xml file
   public static final double teamBMainBotRadius = 50, //1 unit = 1mm, body radius
                              teamBMainBotFrontalDetectionRange = 500, //1 unit = 1mm, range of frontal sensor
