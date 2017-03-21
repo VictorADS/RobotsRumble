@@ -125,6 +125,7 @@ public class FightBrain extends Brain {
 		if (!dodgeTask && !moveBackTask) {
 			radarResults = detectRadar();
 			enemyFighters = 0;
+			enemyDistance = 0;
 			enemyPatrols = 0;
 			enemyDirection = 0;
 			HashMap<Double, Pair> obstacleList = new HashMap<>();
@@ -306,8 +307,10 @@ public class FightBrain extends Brain {
 	
 	private void MyMove(){
 
-		if(isAtLimitFront())
+		if(isAtLimitFront()){
+			stepTurn(Direction.RIGHT);
 			return;
+		}
 		myCoords.setLocation(myCoords.getX() + Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() + Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
 		move();
 	}
