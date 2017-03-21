@@ -68,7 +68,7 @@ public class FightBrain extends Brain {
 
 	public void step() {
 		int enemyFighters, enemyPatrols;
-		double enemyDirection;
+		double enemyDirection, enemyDistance;
 		ArrayList<IRadarResult> radarResults;
 		if (getHealth() <= 0)
 			return;
@@ -134,11 +134,14 @@ public class FightBrain extends Brain {
 				if (r.getObjectType() == IRadarResult.Types.OpponentMainBot) {
 					enemyFighters++;
 					enemyDirection = r.getObjectDirection();
+					enemyDistance = r.getObjectDistance();
 				}
 				/** Au cas ou il ya un secondary **/
 				if (r.getObjectType() == IRadarResult.Types.OpponentSecondaryBot) {
-					if (enemyFighters == 0)
+					if (enemyFighters == 0){
 						enemyDirection = r.getObjectDirection();
+						enemyDistance = r.getObjectDistance();
+					}
 					enemyPatrols++;
 				}
 				/** Ne pas tirer sur friends **/
@@ -171,7 +174,7 @@ public class FightBrain extends Brain {
 			if (enemyFighters + enemyPatrols > 0) {
 				attackedFriend = null;
 				System.out.println("Jattaque "+whoAmI);
-				attack(enemyDirection);
+				attack(enemyDirection, enemyDistance);
 				return;
 			}else{
 				double minDist = Double.MAX_VALUE;
@@ -371,7 +374,7 @@ public class FightBrain extends Brain {
 		nbTurns = rand.nextInt(40);
 	}
 
-	private void attack(double enemyDirection) {
+	private void attack(double enemyDirection, double distanceEnemy) {
 		shouldMove = !shouldMove;
 		broadcast(whoAmI+"-"+(int)myCoords.x+"-"+(int)myCoords.y);
 		if(shouldMove){
