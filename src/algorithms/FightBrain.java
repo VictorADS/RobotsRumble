@@ -214,10 +214,8 @@ public class FightBrain extends Brain {
 		}
 
 		 if (detectFront().getObjectType() == IFrontSensorResult.Types.WALL) {
-			if(isAtLimitFront()){
 				dodgeObstacle();
 				return;
-			}
 		}
 
 //		// Ici on essaye de rester close sinon random
@@ -237,6 +235,7 @@ public class FightBrain extends Brain {
 		}
 		
 		if(list.size() == 2){
+			System.out.println(myCoords.distance(list.get(0))+" AVEC CA  "+ myCoords.distance(list.get(1)));
 			attackedFriend = myCoords.distance(list.get(0)) < myCoords.distance(list.get(1)) ? list.get(0) : list.get(1);
 			approximate(attackedFriend);
 			return;
@@ -261,7 +260,7 @@ public class FightBrain extends Brain {
 				return true;
 		}
 		if(heading >Math.PI){ // Cas Haut
-			if(myCoords.getY() >= 1000)
+			if(myCoords.getY() >= 1900)
 				return true;
 		}
 		
@@ -306,17 +305,10 @@ public class FightBrain extends Brain {
 	}
 	
 	private void MyMove(){
-
-		if(isAtLimitFront()){
-			stepTurn(Direction.RIGHT);
-			return;
-		}
 		myCoords.setLocation(myCoords.getX() + Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() + Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
 		move();
 	}
 	private void MyMoveBack(){
-		if(isAtLimitBack())
-			return;
 		myCoords.setLocation(myCoords.getX() - Parameters.teamAMainBotSpeed * Math.cos(getHeading()), myCoords.getY() - Parameters.teamAMainBotSpeed * Math.sin(getHeading()));
 		moveBack();
 	}
@@ -378,20 +370,23 @@ public class FightBrain extends Brain {
 	}
 
 	private void attack(double enemyDirection, double distanceEnemy) {
+		distanceEnemy = distanceEnemy % (DOUBLE_PI);
+		if(distanceEnemy < 0)
+			distanceEnemy = distanceEnemy + DOUBLE_PI;
 		shouldMove = !shouldMove;
 		broadcast(whoAmI+"-"+(int)myCoords.x+"-"+(int)myCoords.y);
-		if(shouldMove){
-			if(isDerriere(enemyDirection)){
-				MyMove();
-				return;
-			}else{
-				MyMoveBack();
-			}
-		}
-		else if(!doNotShoot){
+//		if(shouldMove){
+//			if(isDerriere(enemyDirection)){
+//				MyMove();
+//				return;
+//			}else{
+//				MyMoveBack();
+//			}
+//		}
+//		else {
 			fire(enemyDirection);
 			return;
-		}
+		//}
 	}
 
 	private boolean isInFrontOfMe(Double enemy) {
